@@ -1,13 +1,9 @@
 pipeline {
-  agent {
-    docker {
-      image 'amor573/jenkins-nginx-agent:latest'
-      args '-v /var/run/docker.sock:/var/run/docker.sock'
-    }
-  }
+  agent any
 
   environment {
     IMAGE_NAME = "Amor573/landing-page"
+    K8S_SECRET_NAME = "dockerhub-regcred"
   }
 
   stages {
