@@ -2,7 +2,7 @@ pipeline {
   agent {
     dockerContainer {
       image 'amor573/jenkins-nginx-agent:latest'
-      args '-v /var/run/docker.sock:/var/run/docker.sock'
+  
     }
   }
 
