@@ -54,9 +54,9 @@ pipeline {
 
    stage('Deploy to Ubuntu VM') {
   steps {
-    sshagent(['vm-ssh-cred-id']) { // This must match your Jenkins SSH credentials ID
+    sshagent(['vm-ssh-cred-id']) {
       sh """
-        ssh -o StrictHostKeyChecking=no amor@192.168.176.135'
+        ssh -o StrictHostKeyChecking=no amor@192.168.176.135 '
           docker pull $IMAGE_NAME:$BUILD_NUMBER &&
           docker stop landing-container || true &&
           docker rm landing-container || true &&
@@ -66,6 +66,7 @@ pipeline {
     }
   }
 }
+
 
   }
 }
