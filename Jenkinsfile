@@ -1,5 +1,10 @@
 pipeline {
-  agent any
+  agent {
+    docker {
+      image 'amor573/jenkins-nginx-agent:latest'
+      args '-v /var/run/docker.sock:/var/run/docker.sock'
+    }
+  }
 
   environment {
     IMAGE_NAME = "Amor573/landing-page"
@@ -54,7 +59,6 @@ pipeline {
         withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
           withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
             sh '''
-              # Create or update image pull secret in Kubernetes
               kubectl create secret docker-registry $K8S_SECRET_NAME \
                 --docker-username=$DOCKER_USER \
                 --docker-password=$DOCKER_PASS \
