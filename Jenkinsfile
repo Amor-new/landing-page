@@ -27,7 +27,7 @@ pipeline {
 
     stage('Snyk Image Scan') {
       steps {
-        withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
+        withCredentials([string(credentialsId: 'synk-token', variable: 'SYNK_TOKEN')]) {
           sh '''
             snyk container test $IMAGE_NAME:$BUILD_NUMBER || true
           '''
