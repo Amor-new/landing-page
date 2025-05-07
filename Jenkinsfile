@@ -2,7 +2,7 @@ pipeline {
   agent any
 
   environment {
-    IMAGE_NAME = "Amor573/landing-page"
+    IMAGE_NAME = "amor573/landing-page"  // ✅ Fixed: lowercase required by Docker Hub
     K8S_SECRET_NAME = "dockerhub-regcred"
   }
 
