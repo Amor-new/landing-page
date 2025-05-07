@@ -25,13 +25,19 @@ pipeline {
       }
     }
 
+    stage('Authenticate Snyk') {
+      steps {
+        withCredentials([string(credentialsId: 'synk-token', variable: 'SNYK_TOKEN')]) {
+          sh 'snyk auth $SNYK_TOKEN'
+        }
+      }
+    }
+
     stage('Snyk Image Scan') {
       steps {
-        withCredentials([string(credentialsId: 'synk-token', variable: 'SYNK_TOKEN')]) {
-          sh '''
-            snyk container test $IMAGE_NAME:$BUILD_NUMBER || true
-          '''
-        }
+        sh '''
+          snyk container test $IMAGE_NAME:$BUILD_NUMBER || true
+        '''
       }
     }
 
@@ -44,6 +50,17 @@ pipeline {
             docker push $IMAGE_NAME:latest
           '''
         }
+      }
+    }
+
+    stage('Deploy to Local VM') {
+      steps {
+        sh '''
+          docker pull $IMAGE_NAME:$BUILD_NUMBER
+          docker stop landing-container || true
+          docker rm landing-container || true
+          docker run -d --name landing-container -p 80:80 $IMAGE_NAME:$BUILD_NUMBER
+        '''
       }
     }
   }
