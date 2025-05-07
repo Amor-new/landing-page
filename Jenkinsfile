@@ -1,46 +1,81 @@
 pipeline {
-    agent any
-    stages {
-       stage("Create docker repository"){
-        steps {
-            echo "aws create-repository --name notifications_api || true "
-        }
-       }
- 
-       stage("Build docker image"){
-        steps {
-            sh "export DOCKER_TLS_VERIFY=1"
-            sh "export DOCKER_HOST=tcp://192.168.49.2:2376"
-            sh "export DOCKER_CERT_PATH=/home/kuber/.minikube/certs"
-            sh "export MINIKUBE_ACTIVE_DOCKERD=minikube"
-            echo "cat regpwd.txt | docker login --username devqxz@gmail.com --password-stdin "
-            echo "docker build -t devxy/notifications_api:$BUILD_NUMBER ."
-            echo "docker tag devxy/notifications_api:$BUILD_NUMBER devxy/notifications_api:latest "
-        }
-       }
- 
-       stage("Docker image scan"){
-        steps {
-            echo "synk notifications_api:v1 --policies 'novulno' "
-        }
-       }
- 
-      stage("Push image to registry"){
-        steps {
-            sh "export DOCKER_TLS_VERIFY=1"
-            sh "export DOCKER_HOST=tcp://192.168.49.2:2376"
-            sh "export DOCKER_CERT_PATH=/home/kuber/.minikube/certs"
-            sh "export MINIKUBE_ACTIVE_DOCKERD=minikube"
-            echo "docker push devxy/notifications_api:$BUILD_NUMBER"
-            echo "docker push devxy/notifications_api:latest"
+  agent any
+
+  environment {
+    IMAGE_NAME = "Amor573/landing-page"
+    K8S_SECRET_NAME = "dockerhub-regcred"
+  }
+
+  stages {
+
+    stage('Checkout Code') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Docker Login & Build') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+          sh '''
+            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+
+            docker build -t $IMAGE_NAME:$BUILD_NUMBER .
+            docker tag $IMAGE_NAME:$BUILD_NUMBER $IMAGE_NAME:latest
+          '''
         }
       }
- 
-     stage("deploy"){
-        steps {
-            echo "kubectl delete -f deploy || true "
-            echo "kubectl apply -f deploy"
-        }
-     }   
     }
+
+    stage('Snyk Image Scan') {
+      steps {
+        withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
+          sh '''
+            snyk container test $IMAGE_NAME:$BUILD_NUMBER || true
+          '''
+        }
+      }
+    }
+
+    stage('Push to Docker Hub') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+          sh '''
+            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+            docker push $IMAGE_NAME:$BUILD_NUMBER
+            docker push $IMAGE_NAME:latest
+          '''
+        }
+      }
+    }
+
+    stage('Configure Kubernetes') {
+      steps {
+        withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+          withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+            sh '''
+              # Create or update image pull secret in Kubernetes
+              kubectl create secret docker-registry $K8S_SECRET_NAME \
+                --docker-username=$DOCKER_USER \
+                --docker-password=$DOCKER_PASS \
+                --docker-server=https://index.docker.io/v1/ \
+                --dry-run=client -o yaml | kubectl apply -f -
+            '''
+          }
+        }
+      }
+    }
+
+    stage('Deploy to Kubernetes') {
+      steps {
+        withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+          sh '''
+            kubectl delete -f deploy/ || true
+            kubectl apply -f deploy/
+          '''
+        }
+      }
+    }
+
+  }
 }
